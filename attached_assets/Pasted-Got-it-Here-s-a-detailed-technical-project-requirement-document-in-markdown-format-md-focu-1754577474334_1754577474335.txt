@@ -1,0 +1,197 @@
+Got it! Here's a detailed **technical project requirement document** in markdown format (`.md`) focused on **FastAPI + LangChain backend** with AI-heavy features, along with a minimal React + Shadcn UI layer for theme and upload. You can copy this entire content directly to your `.md` file.
+
+---
+
+```md
+# Project Requirement Document
+
+## Project Title
+AI-Powered Financial Document Automation (B2B)
+
+---
+
+## Project Overview
+
+Build a backend-centric AI system that automates extraction, understanding, and querying of financial documents (invoices, contracts, balance sheets, etc.) for B2B clients.  
+The system will use **FastAPI** for the backend API, **LangChain** for AI orchestration, and OCR + PDF parsing for document ingestion.  
+The frontend is a thin React layer using **Shadcn UI** with a theme system (light/dark mode toggle). The main focus is the backend AI logic.
+
+---
+
+## Tech Stack
+
+| Layer               | Technology/Library                          |
+|---------------------|--------------------------------------------|
+| Backend Framework   | FastAPI                                    |
+| AI & NLP Framework  | LangChain                                  |
+| Language Models     | OpenAI GPT (or compatible)                  |
+| Document Parsing    | Tesseract OCR, PyPDF2 (or pdfplumber)      |
+| Database            | SQLite / MongoDB                           |
+| Frontend UI         | React with Shadcn UI                       |
+| Deployment          | Docker, Uvicorn                           |
+
+---
+
+## Functional Requirements
+
+### 1. Document Upload & Processing API
+
+- POST endpoint `/upload` to receive PDFs or image files.
+- Validate file types & size.
+- Use OCR (Tesseract) to extract text from images/PDF.
+- Use PDF parsing libraries to extract text and metadata from PDFs.
+- Extract structured financial data (amounts, dates, invoice numbers, parties).
+- Store raw text and structured data in the database.
+
+### 2. AI Data Extraction & Structuring
+
+- Use LangChain pipelines/chains to:
+  - Clean and preprocess extracted text.
+  - Identify and extract key financial entities via prompt engineering.
+  - Convert unstructured text into structured JSON schemas.
+- Implement custom prompt templates to optimize entity extraction.
+- Use memory & retrievers for maintaining context if processing multi-page/multi-document uploads.
+
+### 3. Query Interface API
+
+- POST endpoint `/query` accepting natural language queries.
+- Pass query + stored document data to LangChain for contextual response.
+- Return AI-generated summaries, answers, or reports.
+- Support queries like:
+  - "What is the total amount due in invoice #123?"
+  - "List all payment due dates in the last quarter."
+
+### 4. Reporting & Analytics (Backend Support)
+
+- Generate financial summaries (totals, taxes, due dates).
+- Provide aggregated data endpoints to support frontend reporting.
+
+---
+
+## Non-Functional Requirements
+
+- The system should be scalable to process multiple concurrent document uploads.
+- Error handling & logging for OCR failures, AI errors, and API misuse.
+- Secure file handling and data privacy.
+- Provide API documentation using OpenAPI (Swagger UI).
+
+---
+
+## Backend Detailed Design
+
+### Project Structure (suggested)
+
+```
+
+/app
+/api
+**init**.py
+endpoints.py        # FastAPI routes for upload, query, reports
+/core
+**init**.py
+ocr.py              # OCR processing (Tesseract integration)
+pdf\_parser.py       # PDF text extraction
+langchain\_chains.py # LangChain pipeline definitions
+db.py               # Database connection and ORM models
+schemas.py          # Pydantic models for request/response
+utils.py            # Helper functions
+main.py               # FastAPI app instance and startup
+Dockerfile
+requirements.txt
+
+````
+
+### LangChain Usage
+
+- **Prompt templates:** Define reusable prompt templates for entity extraction and query answering.
+- **Chains:** Build chains that include OCR text input → extraction chain → data formatting.
+- **Memory:** Use memory components to hold context for multi-turn queries.
+- **Retriever:** Implement retrieval over stored document embeddings if needed.
+- **Model integration:** Connect with OpenAI GPT or an alternative LLM via LangChain.
+
+### Example FastAPI endpoint snippet (upload):
+
+```python
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from app.core.ocr import extract_text_from_file
+from app.core.langchain_chains import process_extracted_text
+
+router = APIRouter()
+
+@router.post("/upload")
+async def upload_document(file: UploadFile = File(...)):
+    if not file.content_type.startswith("application/pdf") and not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    
+    # Save file or read bytes
+    contents = await file.read()
+
+    # OCR / PDF parse to extract text
+    text = await extract_text_from_file(contents, file.filename)
+    
+    # Use LangChain to process text and extract structured data
+    structured_data = await process_extracted_text(text)
+    
+    # Save structured data and text to DB (not shown)
+    
+    return {"message": "File processed successfully", "data": structured_data}
+````
+
+---
+
+## Frontend Requirements (React + Shadcn UI)
+
+* Basic React app that calls backend APIs.
+* Upload file interface.
+* Query input box with natural language questions.
+* Show AI-generated answers/reports.
+* Implement theme toggle (light/dark) with persistent user preference.
+* Use Shadcn UI components for consistent styling.
+
+---
+
+## Theme System Overview (Frontend)
+
+* Create a `ThemeProvider` with React context.
+* Toggle button to switch themes.
+* Save theme preference to `localStorage`.
+* Apply CSS variables or Tailwind classes conditionally.
+
+---
+
+## Deployment
+
+* Dockerize backend service.
+* Use Uvicorn ASGI server.
+* Provide instructions for running containers locally and in cloud environments.
+
+---
+
+## Resources & References
+
+* LangChain docs: [https://langchain.com/docs/](https://langchain.com/docs/)
+* FastAPI docs: [https://fastapi.tiangolo.com/](https://fastapi.tiangolo.com/)
+* Tesseract OCR: [https://github.com/tesseract-ocr/tesseract](https://github.com/tesseract-ocr/tesseract)
+* PyPDF2: [https://pypi.org/project/PyPDF2/](https://pypi.org/project/PyPDF2/)
+* Shadcn UI: [https://ui.shadcn.com/](https://ui.shadcn.com/)
+* OpenAI API: [https://platform.openai.com/docs/api-reference](https://platform.openai.com/docs/api-reference)
+
+---
+
+## Timeline
+
+| Day   | Task                                                                                                  |
+| ----- | ----------------------------------------------------------------------------------------------------- |
+| Day 1 | Backend: Upload API, OCR, DB setup, LangChain extraction pipeline                                     |
+| Day 2 | Backend: Query API, LangChain query chains, frontend React basic UI, theme system, deployment scripts |
+
+---
+
+# End of Document
+
+```
+
+---
+
+If you want, I can help you generate code templates or detailed LangChain chain designs next! Just let me know.
+```
