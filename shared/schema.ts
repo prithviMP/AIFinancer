@@ -82,8 +82,8 @@ export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export interface DocumentStats {
   totalDocuments: number;
   processedToday: number;
-  totalValue: string;
-  accuracy: string;
+  totalValue: number;
+  processingSuccessRate: number;
   documentsByType: {
     invoices: number;
     contracts: number;
