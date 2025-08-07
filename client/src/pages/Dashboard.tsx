@@ -1,12 +1,10 @@
 import { StatsCard } from "@/components/business/StatsCard";
 import { ProcessingQueue } from "@/components/business/ProcessingQueue";
 import { DocumentCard } from "@/components/business/DocumentCard";
-import { LoadingOverlay } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Sidebar from "@/components/Sidebar";
-import ChatWidget from "@/components/ChatWidget";
+import { Layout } from "@/components/Layout";
 import { useDocumentStats, useDocuments, useDeleteDocument, useDownloadDocument } from "@/hooks/useDocuments";
 import { Link } from "wouter";
 import { 
@@ -58,36 +56,27 @@ export default function Dashboard() {
 
   if (statsError || documentsError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <Sidebar />
-        <div className="lg:ml-64 min-h-screen">
-          <div className="container mx-auto px-4 py-8">
-            <div className="flex items-center gap-2 text-destructive mb-6">
-              <AlertCircle className="h-5 w-5" />
-              <span>Error loading dashboard</span>
-            </div>
-          </div>
+      <Layout>
+        <div className="flex items-center gap-2 text-destructive mb-6">
+          <AlertCircle className="h-5 w-5" />
+          <span>Error loading dashboard</span>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <Sidebar />
-      
-      {/* Main Content */}
-      <div className="lg:ml-64 min-h-screen">
-        <div className="container mx-auto px-6 py-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Financial Document Dashboard</h1>
-            <p className="text-muted-foreground">
-              AI-powered document analysis and insights at your fingertips
-            </p>
-          </div>
+    <Layout>
+      <div className="container mx-auto max-w-7xl">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Financial Document Dashboard</h1>
+          <p className="text-muted-foreground">
+            AI-powered document analysis and insights at your fingertips
+          </p>
+        </div>
 
-          {/* Stats Cards */}
+        {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {statsLoading ? (
               <>
@@ -132,10 +121,10 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Recent Documents */}
-            <div className="lg:col-span-2">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Recent Documents */}
+          <div className="lg:col-span-2">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <CardTitle className="flex items-center gap-2">
@@ -189,18 +178,15 @@ export default function Dashboard() {
                     </div>
                   )}
                 </CardContent>
-              </Card>
-            </div>
+            </Card>
+          </div>
 
-            {/* Processing Queue */}
-            <div>
-              <ProcessingQueue />
-            </div>
+          {/* Processing Queue */}
+          <div>
+            <ProcessingQueue />
           </div>
         </div>
       </div>
-      
-      <ChatWidget />
-    </div>
+    </Layout>
   );
 }
