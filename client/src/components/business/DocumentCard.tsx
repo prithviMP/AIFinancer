@@ -1,155 +1,117 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { FileText, Download, Eye, Trash2, MoreVertical, Calendar } from "lucide-react";
-import { Document } from "@shared/schema";
-import { formatDistanceToNow } from "date-fns";
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { FileText, Download, Trash2, Eye, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Document } from '@/repositories/documentRepository';
 
 interface DocumentCardProps {
   document: Document;
-  onView?: (document: Document) => void;
-  onDownload?: (document: Document) => void;
-  onDelete?: (document: Document) => void;
-  className?: string;
+  onView: () => void;
+  onDownload: () => void;
+  onDelete: () => void;
 }
 
-export function DocumentCard({ 
-  document, 
-  onView, 
-  onDownload, 
-  onDelete,
-  className 
-}: DocumentCardProps) {
-  const getDocumentTypeIcon = () => {
-    if (document.mimeType.includes('pdf')) return '📄';
-    if (document.mimeType.includes('image')) return '🖼️';
-    return '📎';
+export function DocumentCard({ document, onView, onDownload, onDelete }: DocumentCardProps) {
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'processing':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'processing':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const formatFileSize = (bytes: number) => {
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let size = bytes;
-    let unitIndex = 0;
-    
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
-    }
-    
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const formatCurrency = (cents: number | null) => {
-    if (!cents) return null;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(cents / 100);
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
-    <Card className={`hover:shadow-md transition-shadow ${className}`}>
+    <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl">{getDocumentTypeIcon()}</div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-foreground truncate" title={document.originalName}>
-                {document.originalName}
-              </h3>
-              <div className="flex items-center gap-2 mt-1">
-                <StatusBadge status={document.status as any} size="sm" />
-                {document.documentType && (
-                  <Badge variant="outline" className="text-xs">
-                    {document.documentType}
-                  </Badge>
-                )}
-              </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate" title={document.original_name}>
+                {document.original_name}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formatFileSize(document.size)}
+              </p>
             </div>
           </div>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {onView && (
-                <DropdownMenuItem onClick={() => onView(document)}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  View
-                </DropdownMenuItem>
-              )}
-              {onDownload && document.status === 'completed' && (
-                <DropdownMenuItem onClick={() => onDownload(document)}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download
-                </DropdownMenuItem>
-              )}
-              {onDelete && (
-                <DropdownMenuItem 
-                  onClick={() => onDelete(document)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1">
+            {getStatusIcon(document.status)}
+            <Badge className={`text-xs ${getStatusColor(document.status)}`}>
+              {document.status}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
-      
-      <CardContent>
+      <CardContent className="pt-0">
         <div className="space-y-3">
-          {/* File info */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Size:</span>
-              <span className="ml-2 font-medium">{formatFileSize(document.size)}</span>
-            </div>
-            {document.totalValue && (
-              <div>
-                <span className="text-muted-foreground">Value:</span>
-                <span className="ml-2 font-medium text-green-600">
-                  {formatCurrency(document.totalValue)}
-                </span>
-              </div>
+          <div className="text-xs text-muted-foreground">
+            <p>Uploaded: {formatDate(document.uploaded_at)}</p>
+            {document.processed_at && (
+              <p>Processed: {formatDate(document.processed_at)}</p>
+            )}
+            {document.document_type && (
+              <p>Type: {document.document_type.replace('_', ' ')}</p>
             )}
           </div>
-
-          {/* Dates */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              <span>Uploaded {formatDistanceToNow(new Date(document.uploadedAt))} ago</span>
-            </div>
-          </div>
-
-          {/* Processing info */}
-          {document.processedAt && (
-            <div className="text-sm text-muted-foreground">
-              Processed {formatDistanceToNow(new Date(document.processedAt))} ago
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex gap-2 pt-2">
-            {onView && (
-              <Button variant="outline" size="sm" onClick={() => onView(document)}>
-                <Eye className="mr-1.5 h-3 w-3" />
-                View
-              </Button>
-            )}
-            {onDownload && document.status === 'completed' && (
-              <Button variant="outline" size="sm" onClick={() => onDownload(document)}>
-                <Download className="mr-1.5 h-3 w-3" />
-                Download
-              </Button>
-            )}
+          
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onView}
+              className="flex-1"
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              View
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onDownload}
+              className="flex-1"
+            >
+              <Download className="h-3 w-3 mr-1" />
+              Download
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onDelete}
+              className="text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
         </div>
       </CardContent>

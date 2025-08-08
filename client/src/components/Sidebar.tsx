@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, BarChart3, Upload, FileText, Search, BarChart2, Settings, User } from "lucide-react";
+import { Brain, BarChart3, Upload, FileText, MessageSquare, BarChart2, Settings, User } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { useDashboardStore } from "@/store/dashboardStore";
 
@@ -13,7 +13,7 @@ export default function Sidebar() {
     { icon: BarChart3, label: "Dashboard", href: "/", active: location === "/" },
     { icon: Upload, label: "Upload Documents", href: "/upload", active: location === "/upload" },
     { icon: FileText, label: `Documents (${stats?.totalDocuments || 0})`, href: "/documents", active: location === "/documents" },
-    { icon: Search, label: "Query Interface", href: "/query", active: location === "/query" },
+    { icon: MessageSquare, label: "Chat", href: "/chat", active: location === "/chat" },
     { icon: BarChart2, label: "Analytics", href: "/analytics", active: location === "/analytics" },
     { icon: Settings, label: "Settings", href: "/settings", active: location === "/settings" },
   ];

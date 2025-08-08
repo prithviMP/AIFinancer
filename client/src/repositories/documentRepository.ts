@@ -1,96 +1,115 @@
-import { apiClient } from './apiClient';
-import { ApiResponse, PaginatedResponse, RequestOptions } from './types';
-import { Document, DocumentStats, ProcessingQueue } from '@shared/schema';
+import { api, PaginatedResponse } from '@/lib/apiClient';
 
-export interface DocumentFilters {
+// Types
+export interface Document {
+  id: string;
+  filename: string;
+  original_name: string;
+  mime_type: string;
+  size: number;
+  uploaded_by: string;
+  uploaded_at: string;
+  processed_at?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  document_type?: string;
+  extracted_data?: any;
+  ocr_text?: string;
+  total_value?: number;
+}
+
+export interface DocumentListParams {
+  page?: number;
+  limit?: number;
   status?: string;
-  documentType?: string;
-  dateFrom?: string;
-  dateTo?: string;
+  document_type?: string;
   search?: string;
 }
 
-export interface DocumentListOptions extends RequestOptions {
-  page?: number;
-  limit?: number;
-  filters?: DocumentFilters;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+export interface DocumentUploadResponse {
+  id: string;
+  filename: string;
+  status: string;
+  message: string;
 }
 
-export interface DocumentUploadData {
-  file: File;
-  documentType?: string;
+export interface QueryResponse {
+  query: string;
+  response: string;
+  context_documents: number;
+  confidence?: number;
+  sources?: string[];
 }
 
-export class DocumentRepository {
-  private readonly basePath = '/api/documents';
+export interface DocumentRepository {
+  uploadDocument(file: File): Promise<DocumentUploadResponse>;
+  getDocuments(params: DocumentListParams): Promise<PaginatedResponse<Document>>;
+  getDocument(id: string): Promise<Document>;
+  deleteDocument(id: string): Promise<void>;
+  downloadDocument(id: string): Promise<Blob>;
+  queryDocuments(query: string, documentIds?: string[]): Promise<QueryResponse>;
+}
 
-  async getDocuments(options: DocumentListOptions = {}): Promise<Document[]> {
-    const { page, limit, filters, sortBy, sortOrder, ...requestOptions } = options;
-    
-    const params = {
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-      ...filters,
-    };
-
-    return apiClient.get<Document[]>(this.basePath, {
-      ...requestOptions,
-      params,
-    });
-  }
-
-  async getDocument(id: string, options?: RequestOptions): Promise<Document> {
-    return apiClient.get<Document>(`${this.basePath}/${id}`, options);
-  }
-
-  async uploadDocument(data: DocumentUploadData, options?: RequestOptions): Promise<Document> {
-    const formData = new FormData();
-    formData.append('file', data.file);
-    
-    if (data.documentType) {
-      formData.append('documentType', data.documentType);
+// Implementation
+export class DocumentRepositoryImpl implements DocumentRepository {
+  async uploadDocument(file: File): Promise<DocumentUploadResponse> {
+    try {
+      const response = await api.uploadDocument(file);
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      throw new Error('Failed to upload document');
     }
-
-    return apiClient.upload<Document>(`${this.basePath}/upload`, formData, options);
   }
 
-  async deleteDocument(id: string, options?: RequestOptions): Promise<void> {
-    return apiClient.delete<void>(`${this.basePath}/${id}`, options);
+  async getDocuments(params: DocumentListParams = {}): Promise<PaginatedResponse<Document>> {
+    try {
+      const response = await api.getDocuments(params);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      throw new Error('Failed to fetch documents');
+    }
   }
 
-  async getProcessingQueue(options?: RequestOptions): Promise<ProcessingQueue[]> {
-    return apiClient.get<ProcessingQueue[]>(`${this.basePath}/queue`, options);
+  async getDocument(id: string): Promise<Document> {
+    try {
+      const response = await api.getDocument(id);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching document:', error);
+      throw new Error('Failed to fetch document');
+    }
   }
 
-  async retryProcessing(id: string, options?: RequestOptions): Promise<Document> {
-    return apiClient.post<Document>(`${this.basePath}/${id}/retry`, undefined, options);
-  }
-
-  async getDocumentStats(options?: RequestOptions): Promise<DocumentStats> {
-    return apiClient.get<DocumentStats>('/api/dashboard/stats', options);
+  async deleteDocument(id: string): Promise<void> {
+    try {
+      await api.deleteDocument(id);
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      throw new Error('Failed to delete document');
+    }
   }
 
   async downloadDocument(id: string): Promise<Blob> {
-    const response = await fetch(`${apiClient['config'].baseURL}${this.basePath}/${id}/download`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to download document: ${response.statusText}`);
+    try {
+      const response = await api.downloadDocument(id);
+      return response.data;
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      throw new Error('Failed to download document');
     }
-    
-    return response.blob();
   }
 
-  async searchDocuments(query: string, options?: RequestOptions): Promise<Document[]> {
-    return apiClient.get<Document[]>(`${this.basePath}/search`, {
-      ...options,
-      params: { q: query },
-    });
+  async queryDocuments(query: string, documentIds?: string[]): Promise<QueryResponse> {
+    try {
+      const response = await api.queryDocuments(query, documentIds);
+      return response.data;
+    } catch (error) {
+      console.error('Error querying documents:', error);
+      throw new Error('Failed to query documents');
+    }
   }
 }
 
 // Export singleton instance
-export const documentRepository = new DocumentRepository();
+export const documentRepository = new DocumentRepositoryImpl();

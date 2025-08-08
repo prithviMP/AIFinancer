@@ -14,7 +14,7 @@ import { DocumentCard } from '@/components/business/DocumentCard';
 import { FileUpload } from '@/components/business/FileUpload';
 
 export default function UploadPage() {
-  const { documents, isLoading, error } = useDocuments();
+  const { data: documents = [], isLoading, error } = useDocuments();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);

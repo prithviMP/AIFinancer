@@ -6,6 +6,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Dashboard from "@/pages/Dashboard";
 import UploadPage from "@/pages/UploadPage";
+import Documents from "@/pages/Documents";
+import Analytics from "@/pages/Analytics";
+import Chat from "@/pages/Chat";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -13,6 +17,10 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/upload" component={UploadPage} />
+      <Route path="/documents" component={Documents} />
+      <Route path="/analytics" component={Analytics} />
+      <Route path="/chat" component={Chat} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1,57 +1,88 @@
-import { apiClient } from './apiClient';
-import { RequestOptions } from './types';
-import { ChatSession, ChatMessage } from '@shared/schema';
+import { api } from '@/lib/apiClient';
 
-export interface SendMessageData {
+// Types
+export interface ChatSession {
+  id: string;
+  user_id: string;
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface ChatMessage {
+  id: string;
+  session_id: string;
   content: string;
-  documentContext?: any;
+  is_from_user: boolean;
+  timestamp: string;
+  document_context?: any;
 }
 
-export interface CreateSessionData {
-  userId: string;
+export interface SendMessageRequest {
+  content: string;
+  session_id: string;
+  is_from_user: boolean;
+  document_context?: any;
 }
 
-export class ChatRepository {
-  private readonly basePath = '/api/chat';
+export interface ChatRepository {
+  sendMessage(message: SendMessageRequest): Promise<ChatMessage>;
+  getChatHistory(sessionId?: string): Promise<ChatMessage[]>;
+  createChatSession(): Promise<ChatSession>;
+  getChatSessions(): Promise<ChatSession[]>;
+  deleteChatSession(sessionId: string): Promise<void>;
+}
 
-  async getSessions(options?: RequestOptions): Promise<ChatSession[]> {
-    return apiClient.get<ChatSession[]>(`${this.basePath}/sessions`, options);
-  }
-
-  async getActiveSession(options?: RequestOptions): Promise<ChatSession | null> {
+// Implementation
+export class ChatRepositoryImpl implements ChatRepository {
+  async sendMessage(message: SendMessageRequest): Promise<ChatMessage> {
     try {
-      return await apiClient.get<ChatSession>(`${this.basePath}/sessions/active`, options);
-    } catch (error: any) {
-      if (error.status === 404) {
-        return null;
-      }
-      throw error;
+      const response = await api.sendMessage(message);
+      return response.data;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw new Error('Failed to send message');
     }
   }
 
-  async createSession(data: CreateSessionData, options?: RequestOptions): Promise<ChatSession> {
-    return apiClient.post<ChatSession>(`${this.basePath}/sessions`, data, options);
+  async getChatHistory(sessionId?: string): Promise<ChatMessage[]> {
+    try {
+      const response = await api.getChatHistory(sessionId);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+      throw new Error('Failed to fetch chat history');
+    }
   }
 
-  async getSession(id: string, options?: RequestOptions): Promise<ChatSession> {
-    return apiClient.get<ChatSession>(`${this.basePath}/sessions/${id}`, options);
+  async createChatSession(): Promise<ChatSession> {
+    try {
+      const response = await api.createChatSession();
+      return response.data;
+    } catch (error) {
+      console.error('Error creating chat session:', error);
+      throw new Error('Failed to create chat session');
+    }
   }
 
-  async getMessages(sessionId: string, options?: RequestOptions): Promise<ChatMessage[]> {
-    return apiClient.get<ChatMessage[]>(`${this.basePath}/sessions/${sessionId}/messages`, options);
+  async getChatSessions(): Promise<ChatSession[]> {
+    try {
+      const response = await api.getChatSessions();
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching chat sessions:', error);
+      throw new Error('Failed to fetch chat sessions');
+    }
   }
 
-  async sendMessage(sessionId: string, data: SendMessageData, options?: RequestOptions): Promise<ChatMessage> {
-    return apiClient.post<ChatMessage>(`${this.basePath}/sessions/${sessionId}/messages`, data, options);
-  }
-
-  async deleteSession(id: string, options?: RequestOptions): Promise<void> {
-    return apiClient.delete<void>(`${this.basePath}/sessions/${id}`, options);
-  }
-
-  async clearHistory(sessionId: string, options?: RequestOptions): Promise<void> {
-    return apiClient.delete<void>(`${this.basePath}/sessions/${sessionId}/messages`, options);
+  async deleteChatSession(sessionId: string): Promise<void> {
+    try {
+      await api.deleteChatSession(sessionId);
+    } catch (error) {
+      console.error('Error deleting chat session:', error);
+      throw new Error('Failed to delete chat session');
+    }
   }
 }
 
-export const chatRepository = new ChatRepository();
+// Export singleton instance
+export const chatRepository = new ChatRepositoryImpl();

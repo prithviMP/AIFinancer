@@ -1,35 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { documentRepository, type DocumentListOptions, type DocumentUploadData } from "@/repositories";
+import { documentRepository, type DocumentListParams } from "@/repositories/documentRepository";
 import { useToast } from "@/hooks/use-toast";
 
-export function useDocuments(options: DocumentListOptions = {}) {
+export function useDocuments(params: DocumentListParams = {}) {
   return useQuery({
-    queryKey: ['/api/documents', options],
-    queryFn: () => documentRepository.getDocuments(options),
+    queryKey: ['documents', params],
+    queryFn: () => documentRepository.getDocuments(params),
+    staleTime: 30000, // 30 seconds
   });
 }
 
 export function useDocument(id: string) {
   return useQuery({
-    queryKey: ['/api/documents', id],
+    queryKey: ['documents', id],
     queryFn: () => documentRepository.getDocument(id),
     enabled: !!id,
-  });
-}
-
-export function useDocumentStats() {
-  return useQuery({
-    queryKey: ['/api/dashboard/stats'],
-    queryFn: () => documentRepository.getDocumentStats(),
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
-}
-
-export function useProcessingQueue() {
-  return useQuery({
-    queryKey: ['/api/documents/queue'],
-    queryFn: () => documentRepository.getProcessingQueue(),
-    refetchInterval: 5000, // Refresh every 5 seconds
   });
 }
 
@@ -38,22 +23,20 @@ export function useUploadDocument() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: DocumentUploadData) => documentRepository.uploadDocument(data),
-    onSuccess: (document) => {
+    mutationFn: (files: File[]) => 
+      Promise.all(files.map(file => documentRepository.uploadDocument(file))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast({
         title: "Upload successful",
-        description: `${document.originalName} has been uploaded and is being processed.`,
+        description: "Documents have been uploaded and are being processed",
       });
-
-      // Invalidate and refetch related queries
-      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/documents/queue'] });
     },
     onError: (error: any) => {
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload document. Please try again.",
+        description: error.message || "Failed to upload documents",
         variant: "destructive",
       });
     },
@@ -67,19 +50,17 @@ export function useDeleteDocument() {
   return useMutation({
     mutationFn: (id: string) => documentRepository.deleteDocument(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast({
         title: "Document deleted",
-        description: "Document has been successfully deleted.",
+        description: "The document has been successfully removed",
       });
-
-      // Invalidate and refetch related queries
-      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
     },
     onError: (error: any) => {
       toast({
         title: "Delete failed",
-        description: error.message || "Failed to delete document. Please try again.",
+        description: error.message || "Failed to delete document",
         variant: "destructive",
       });
     },
@@ -97,7 +78,23 @@ export function useDownloadDocument() {
     onError: (error: any) => {
       toast({
         title: "Download failed", 
-        description: error.message || "Failed to download document. Please try again.",
+        description: error.message || "Failed to download document",
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+export function useQueryDocuments() {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ query, documentIds }: { query: string; documentIds?: string[] }) =>
+      documentRepository.queryDocuments(query, documentIds),
+    onError: (error: any) => {
+      toast({
+        title: "Query failed",
+        description: error.message || "Failed to process query",
         variant: "destructive",
       });
     },
