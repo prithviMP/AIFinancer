@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from api.v1.api import api_router
+from app.database import init_db
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,18 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up FastAPI application...")
+    try:
+        db_url = settings.DATABASE_URL
+        logger.info(f"Database URL in use: {db_url}")
+        if db_url.startswith("postgres"):
+            logger.warning("Postgres detected. Ensure your schema matches models or switch to SQLite by setting DATABASE_URL=sqlite:///./app.db for easy local dev.")
+    except Exception:
+        logger.exception("Unable to read DATABASE_URL from settings")
+    # Ensure DB tables exist
+    try:
+        init_db()
+    except Exception as exc:
+        logger.error(f"DB init failed: {exc}")
     yield
     # Shutdown
     logger.info("Shutting down FastAPI application...")

@@ -100,3 +100,20 @@ export function useQueryDocuments() {
     },
   });
 }
+
+// Add missing exports
+export function useProcessingQueue() {
+  return useQuery({
+    queryKey: ['processing-queue'],
+    queryFn: () => documentRepository.getProcessingQueue(),
+    refetchInterval: 5000, // Poll every 5 seconds
+  });
+}
+
+export function useDocumentStats() {
+  return useQuery({
+    queryKey: ['document-stats'],
+    queryFn: () => documentRepository.getDocumentStats(),
+    staleTime: 60000, // 1 minute
+  });
+}

@@ -23,9 +23,20 @@ export default function Dashboard() {
   const deleteMutation = useDeleteDocument();
   const downloadMutation = useDownloadDocument();
 
-  const handleView = (doc: DocumentType) => {
-    // TODO: Implement document viewer modal
-    console.log('View document:', doc);
+  // Normalize documents to a plain array for safe rendering
+  const documentItems: DocumentType[] = Array.isArray(documents)
+    ? (documents as DocumentType[])
+    : (documents?.items ?? []);
+
+  const handleView = async (doc: DocumentType) => {
+    try {
+      const blob = await downloadMutation.mutateAsync(doc.id);
+      const url = window.URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (win) win.focus();
+    } catch (error) {
+      console.error('View error:', error);
+    }
   };
 
   const handleDownload = async (doc: DocumentType) => {
@@ -145,7 +156,7 @@ export default function Dashboard() {
                         <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
                       ))}
                     </div>
-                  ) : documents.length === 0 ? (
+                  ) : documentItems.length === 0 ? (
                     <EmptyState
                       icon={FileText}
                       title="No documents yet"
@@ -157,7 +168,7 @@ export default function Dashboard() {
                     />
                   ) : (
                     <div className="space-y-4">
-                      {documents.slice(0, 5).map((doc) => (
+                      {documentItems.slice(0, 5).map((doc) => (
                         <DocumentCard
                           key={doc.id}
                           document={doc}
@@ -166,7 +177,7 @@ export default function Dashboard() {
                           onDelete={() => handleDelete(doc)}
                         />
                       ))}
-                      {documents.length > 5 && (
+                      {documentItems.length > 5 && (
                         <div className="text-center pt-4">
                           <Link to="/upload">
                             <Button variant="outline" size="sm">

@@ -279,10 +279,14 @@ class AnalyticsService:
                 )
             ).group_by(func.date(Document.uploaded_at)).all()
             
-            # Convert to dictionary
+            # Convert to dictionary (SQLite may return string dates)
             trends = {}
             for date, count in daily_counts:
-                trends[date.strftime("%Y-%m-%d")] = count
+                try:
+                    key = date.strftime("%Y-%m-%d")  # datetime/date
+                except AttributeError:
+                    key = str(date)  # already a string like '2025-08-06'
+                trends[key] = count
             
             return {
                 "period": period,

@@ -43,14 +43,15 @@ export function FileUpload({
   const [isUploading, setIsUploading] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const newFiles: UploadFile[] = acceptedFiles.map(file => ({
-      ...file,
-      id: Math.random().toString(36).substr(2, 9),
-      status: 'pending',
-      progress: 0,
-    }));
+    const newFiles: UploadFile[] = acceptedFiles.map((file) => {
+      const uploadFile = file as UploadFile; // preserve File prototype
+      uploadFile.id = Math.random().toString(36).substr(2, 9);
+      uploadFile.status = 'pending';
+      uploadFile.progress = 0;
+      return uploadFile;
+    });
 
-    setUploadFiles(prev => [...prev, ...newFiles].slice(0, maxFiles));
+    setUploadFiles((prev) => [...prev, ...newFiles].slice(0, maxFiles));
   }, [maxFiles]);
 
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
@@ -87,8 +88,8 @@ export function FileUpload({
         );
       }, 200);
 
-      // Perform actual upload
-      const files = uploadFiles.map(f => new File([f], f.name, { type: f.type }));
+      // Perform actual upload using the original File instances
+      const files = uploadFiles.map(f => f as File);
       await onUpload(files);
 
       clearInterval(progressInterval);
@@ -116,22 +117,24 @@ export function FileUpload({
     }
   };
 
-  const formatFileSize = (bytes: number) => {
+  const formatFileSize = (bytes?: number | null) => {
     const units = ['B', 'KB', 'MB', 'GB'];
-    let size = bytes;
+    let size = (typeof bytes === 'number' && isFinite(bytes) && bytes >= 0) ? bytes : 0;
     let unitIndex = 0;
-    
+
     while (size >= 1024 && unitIndex < units.length - 1) {
       size /= 1024;
       unitIndex++;
     }
-    
+
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   };
 
   const getFileIcon = (file: UploadFile) => {
-    if (file.type.includes('pdf')) return '📄';
-    if (file.type.includes('image')) return '🖼️';
+    const type = file?.type || "";
+    const lower = type.toLowerCase();
+    if (lower.includes('pdf')) return '📄';
+    if (lower.includes('image')) return '🖼️';
     return '📎';
   };
 

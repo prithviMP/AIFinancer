@@ -21,27 +21,56 @@ async def upload_document(
     Upload a document for processing
     """
     try:
-        # Validate file type
-        if not file.content_type in ["application/pdf", "image/jpeg", "image/png", "image/jpg"]:
+        # Validate file type (be lenient: some browsers omit type)
+        ct = (file.content_type or "").lower()
+        name = (file.filename or "").lower()
+        logger.info({"event": "upload_request", "filename": file.filename, "content_type": file.content_type})
+        allowed = {
+            "application/pdf",
+            "application/x-pdf",
+            "application/acrobat",
+            "image/jpeg",
+            "image/png",
+            "image/jpg",
+        }
+        by_mime = (ct in allowed) or ct.startswith("image/") or ct.startswith("application/pdf")
+        by_ext = name.endswith(".pdf") or name.endswith(".jpeg") or name.endswith(".jpg") or name.endswith(".png")
+        if not (by_mime or by_ext):
+            logger.info({
+                "event": "upload_rejected",
+                "reason": "unsupported_type",
+                "content_type": file.content_type,
+                "filename": file.filename,
+            })
             raise HTTPException(status_code=400, detail="Unsupported file type")
         
-        # Validate file size (10MB limit)
-        if file.size > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
+        # Note: UploadFile may not expose size reliably across servers; size validation handled during save
         
         # Upload and process document
+        logger.info(
+            {
+                "event": "upload_request",
+                "filename": file.filename,
+                "content_type": file.content_type,
+            }
+        )
+
         result = await document_service.upload_document(db, file, "default-user")
         
-        return FileUploadResponse(
+        payload = FileUploadResponse(
             id=result.id,
             filename=result.filename,
             status=result.status,
             message="Document uploaded successfully"
         )
+        logger.info({"event": "upload_success", "document_id": result.id, "filename": result.filename})
+        return payload
         
-    except Exception as e:
-        logger.error(f"Error uploading document: {e}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error uploading document")
+        raise HTTPException(status_code=500, detail="Upload failed: see server logs")
 
 @router.get("/", response_model=DocumentListResponse)
 async def get_documents(

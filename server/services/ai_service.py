@@ -1,11 +1,11 @@
-from langchain.llms import OpenAI
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory
-from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage
+from langchain.schema import SystemMessage
 import logging
 import json
+import re
 from typing import Dict, List, Any, Optional
 from app.config import settings
 
@@ -13,22 +13,38 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        self.llm = ChatOpenAI(
-            model_name=settings.OPENAI_MODEL,
-            temperature=0.1,
-            openai_api_key=settings.OPENAI_API_KEY
-        )
-        
-        # Initialize chains
-        self.document_analysis_chain = self._create_document_analysis_chain()
-        self.query_chain = self._create_query_chain()
-        self.chat_chain = self._create_chat_chain()
-        
-        # Memory for chat
+        # Defer heavy LLM initialization when OPENAI_API_KEY is not set
+        self.llm = None
+        self.document_analysis_chain = None
+        self.query_chain = None
+        self.chat_chain = None
+
+        # Initialize memory before creating chat chain
         self.memory = ConversationBufferMemory(
             memory_key="chat_history",
             return_messages=True
         )
+
+        if getattr(settings, "OPENAI_API_KEY", None):
+            try:
+                # Import here to avoid hard dependency when key is absent
+                from langchain_openai import ChatOpenAI  # type: ignore
+
+                self.llm = ChatOpenAI(
+                    model_name=settings.OPENAI_MODEL,
+                    temperature=0.1,
+                    api_key=settings.OPENAI_API_KEY,
+                )
+
+                # Initialize chains only when LLM is available
+                self.document_analysis_chain = self._create_document_analysis_chain()
+                self.query_chain = self._create_query_chain()
+                self.chat_chain = self._create_chat_chain()
+            except Exception as exc:
+                logging.getLogger(__name__).warning(
+                    f"LLM initialization skipped due to error: {exc}. Running with stub responses."
+                )
+
     
     def _create_document_analysis_chain(self) -> LLMChain:
         """
@@ -119,11 +135,7 @@ class AIService:
             template=template
         )
         
-        return LLMChain(
-            llm=self.llm, 
-            prompt=prompt,
-            memory=self.memory
-        )
+        return LLMChain(llm=self.llm, prompt=prompt, memory=self.memory)
     
     async def analyze_document(self, text: str, file_path: str) -> Dict[str, Any]:
         """
@@ -132,8 +144,28 @@ class AIService:
         try:
             logger.info(f"Analyzing document: {file_path}")
             
+            if not self.document_analysis_chain:
+                # Stubbed response when LLM is unavailable
+                return {
+                    "document_type": "other",
+                    "confidence": 0.5,
+                    "entities": {},
+                    "summary": "LLM not configured. Provide OPENAI_API_KEY to enable analysis.",
+                }
+
             # Run document analysis chain
-            result = await self.document_analysis_chain.arun(text=text)
+            try:
+                result = await self.document_analysis_chain.arun(text=text)
+            except Exception as exc:
+                logger.error(f"Document analysis chain failed: {exc}")
+                # Fallback to lightweight classification
+                cls = await self.classify_document_type(text)
+                return {
+                    "document_type": cls.get("document_type", "other"),
+                    "confidence": cls.get("confidence", 0.5),
+                    "entities": {},
+                    "summary": cls.get("reasoning", "classification fallback")
+                }
             
             # Parse JSON response
             try:
@@ -142,11 +174,12 @@ class AIService:
                 return analysis
             except json.JSONDecodeError:
                 logger.error(f"Failed to parse AI response as JSON: {result}")
+                cls = await self.classify_document_type(text)
                 return {
-                    "document_type": "other",
-                    "confidence": 0.5,
+                    "document_type": cls.get("document_type", "other"),
+                    "confidence": cls.get("confidence", 0.5),
                     "entities": {},
-                    "summary": "Analysis failed"
+                    "summary": cls.get("reasoning", "classification fallback")
                 }
                 
         except Exception as e:
@@ -175,11 +208,11 @@ class AIService:
                     context_str += f"Extracted Data: {json.dumps(doc['extracted_data'], indent=2)}\n"
                 context_str += "-" * 50 + "\n"
             
+            if not self.query_chain:
+                return "LLM not configured. Provide OPENAI_API_KEY to enable query answering."
+
             # Run query chain
-            response = await self.query_chain.arun(
-                query=query,
-                context=context_str
-            )
+            response = await self.query_chain.arun(query=query, context=context_str)
             
             logger.info(f"Query response generated")
             return response.strip()
@@ -195,6 +228,9 @@ class AIService:
         try:
             logger.info(f"Generating chat response for user {user_id}")
             
+            if not self.chat_chain:
+                return "LLM not configured. Provide OPENAI_API_KEY to enable chat."
+
             # Run chat chain
             response = await self.chat_chain.arun(input=message)
             
@@ -207,37 +243,69 @@ class AIService:
     
     async def classify_document_type(self, text: str) -> Dict[str, Any]:
         """
-        Classify document type
+        Robust classification using chat model directly with JSON-only response.
         """
         try:
-            classification_prompt = """
-            Classify the following document text into one of these categories:
-            - invoice
-            - contract
-            - receipt
-            - financial_statement
-            - other
-            
-            Document Text:
-            {text}
-            
-            Provide response as JSON:
-            {{"document_type": "type", "confidence": 0.95, "reasoning": "explanation"}}
-            """
-            
-            prompt = PromptTemplate(
-                input_variables=["text"],
-                template=classification_prompt
-            )
-            
-            chain = LLMChain(llm=self.llm, prompt=prompt)
-            result = await chain.arun(text=text)
-            
+            if not self.llm:
+                return {"document_type": "other", "confidence": 0.5, "reasoning": "LLM not configured"}
+
+            system = SystemMessage(content=(
+                "You are an expert at classifying financial documents. "
+                "Allowed types: invoice, contract, receipt, financial_statement, other. "
+                "Return ONLY a single line of minified JSON with keys: document_type, confidence, reasoning."
+            ))
+            user = HumanMessage(content=(
+                "Classify the following document. Respond with JSON only.\n\n" + text[:5000]
+            ))
+
+            ai_message: AIMessage = await self.llm.ainvoke([system, user])  # type: ignore
+            raw = ai_message.content if isinstance(ai_message.content, str) else str(ai_message.content)
+
+            # Try to extract JSON
+            def parse_first_json(s: str) -> Optional[Dict[str, Any]]:
+                s = s.strip()
+                # If fenced, strip
+                if s.startswith("```"):
+                    s = re.sub(r"^```(json)?|```$", "", s, flags=re.IGNORECASE | re.MULTILINE).strip()
+                try:
+                    return json.loads(s)
+                except Exception:
+                    match = re.search(r"\{[\s\S]*\}", s)
+                    if match:
+                        try:
+                            return json.loads(match.group(0))
+                        except Exception:
+                            return None
+                return None
+
+            data = parse_first_json(raw) or {}
+
+            # Normalize type
+            doc_type_raw = str(data.get("document_type", "other")).lower().strip()
+            mapping = {
+                "financial statement": "financial_statement",
+                "financial_statement": "financial_statement",
+                "statement": "financial_statement",
+                "bill": "receipt",
+                "receipt": "receipt",
+                "invoice": "invoice",
+                "agreement": "contract",
+                "contract": "contract",
+            }
+            doc_type = mapping.get(doc_type_raw, doc_type_raw)
+            if doc_type not in {"invoice", "contract", "receipt", "financial_statement", "other"}:
+                doc_type = "other"
+
+            confidence = data.get("confidence")
             try:
-                return json.loads(result)
-            except json.JSONDecodeError:
-                return {"document_type": "other", "confidence": 0.5, "reasoning": "Failed to parse"}
-                
+                confidence_val = float(confidence) if confidence is not None else 0.5
+            except Exception:
+                confidence_val = 0.5
+
+            reasoning = str(data.get("reasoning", ""))[:500]
+
+            return {"document_type": doc_type, "confidence": confidence_val, "reasoning": reasoning}
+
         except Exception as e:
             logger.error(f"Error classifying document: {e}")
             return {"document_type": "other", "confidence": 0.0, "reasoning": str(e)}

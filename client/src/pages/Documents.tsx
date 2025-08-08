@@ -18,12 +18,21 @@ export default function DocumentsPage() {
   const [filters, setFilters] = useState({
     page: 1,
     limit: 20,
-    status: '',
-    document_type: '',
+    status: 'all',
+    document_type: 'all',
     search: '',
   });
 
-  const { data: documents, isLoading, error } = useDocuments(filters);
+  // Map UI state to API params (avoid empty-string for Select; use 'all' sentinel)
+  const apiFilters = {
+    page: filters.page,
+    limit: filters.limit,
+    status: filters.status === 'all' ? undefined : filters.status,
+    document_type: filters.document_type === 'all' ? undefined : filters.document_type,
+    search: filters.search || undefined,
+  };
+
+  const { data: documents, isLoading, error } = useDocuments(apiFilters);
   const deleteMutation = useDeleteDocument();
   const downloadMutation = useDownloadDocument();
 
@@ -126,7 +135,7 @@ export default function DocumentsPage() {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="processing">Processing</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
@@ -139,7 +148,7 @@ export default function DocumentsPage() {
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="invoice">Invoice</SelectItem>
                   <SelectItem value="contract">Contract</SelectItem>
                   <SelectItem value="receipt">Receipt</SelectItem>

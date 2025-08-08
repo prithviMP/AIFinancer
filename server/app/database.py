@@ -7,14 +7,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Create database engine with connection pooling
+connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(
     settings.DATABASE_URL,
     poolclass=QueuePool,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=5,
+    max_overflow=10,
     pool_pre_ping=True,
     pool_recycle=3600,
-    echo=settings.DEBUG
+    echo=settings.DEBUG,
+    connect_args=connect_args,
 )
 
 # Create session factory
@@ -27,8 +29,9 @@ def get_db() -> Session:
     db = SessionLocal()
     try:
         yield db
-    except Exception as e:
-        logger.error(f"Database session error: {e}")
+    except Exception:
+        # Log full traceback for post-mortem debugging
+        logger.exception("Database session error")
         db.rollback()
         raise
     finally:

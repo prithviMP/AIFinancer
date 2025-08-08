@@ -40,6 +40,24 @@ export interface QueryResponse {
   sources?: string[];
 }
 
+export interface ProcessingQueueItem {
+  id: string;
+  filename: string;
+  status: string;
+  progress: number;
+  estimated_completion?: string;
+}
+
+export interface DocumentStats {
+  total_documents: number;
+  pending_documents: number;
+  processing_documents: number;
+  completed_documents: number;
+  failed_documents: number;
+  total_value: number;
+  average_processing_time: number;
+}
+
 export interface DocumentRepository {
   uploadDocument(file: File): Promise<DocumentUploadResponse>;
   getDocuments(params: DocumentListParams): Promise<PaginatedResponse<Document>>;
@@ -47,6 +65,8 @@ export interface DocumentRepository {
   deleteDocument(id: string): Promise<void>;
   downloadDocument(id: string): Promise<Blob>;
   queryDocuments(query: string, documentIds?: string[]): Promise<QueryResponse>;
+  getProcessingQueue(): Promise<ProcessingQueueItem[]>;
+  getDocumentStats(): Promise<DocumentStats>;
 }
 
 // Implementation
@@ -107,6 +127,26 @@ export class DocumentRepositoryImpl implements DocumentRepository {
     } catch (error) {
       console.error('Error querying documents:', error);
       throw new Error('Failed to query documents');
+    }
+  }
+
+  async getProcessingQueue(): Promise<ProcessingQueueItem[]> {
+    try {
+      const response = await api.getProcessingQueue();
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching processing queue:', error);
+      throw new Error('Failed to fetch processing queue');
+    }
+  }
+
+  async getDocumentStats(): Promise<DocumentStats> {
+    try {
+      const response = await api.getDocumentStats();
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching document stats:', error);
+      throw new Error('Failed to fetch document stats');
     }
   }
 }

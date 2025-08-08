@@ -89,7 +89,7 @@ export function DocumentCard({ document, onView, onDownload, onDelete }: Documen
             <Button
               size="sm"
               variant="outline"
-              onClick={onView}
+              onClick={(e) => { e.preventDefault(); onView(); }}
               className="flex-1"
             >
               <Eye className="h-3 w-3 mr-1" />

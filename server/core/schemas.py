@@ -49,6 +49,13 @@ class DocumentResponse(DocumentBase):
     class Config:
         from_attributes = True
 
+class DocumentListResponse(BaseModel):
+    items: List[DocumentResponse]
+    total: int
+    page: int
+    limit: int
+    pages: int
+
 # Chat schemas
 class ChatSessionBase(BaseModel):
     user_id: str
@@ -83,6 +90,10 @@ class ChatMessageResponse(ChatMessageBase):
 
 # Query schemas
 class DocumentQuery(BaseModel):
+    query: str = Field(..., min_length=1, description="Natural language query about documents")
+    document_ids: Optional[List[str]] = Field(None, description="Specific documents to query")
+
+class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1, description="Natural language query about documents")
     document_ids: Optional[List[str]] = Field(None, description="Specific documents to query")
 

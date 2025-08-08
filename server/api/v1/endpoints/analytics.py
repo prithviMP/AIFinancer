@@ -35,12 +35,22 @@ async def get_processing_queue(db: Session = Depends(get_db)):
     """
     try:
         user_id = "default-user"  # TODO: Get from authentication
-        
         queue = await analytics_service.get_processing_queue(db, user_id)
         return queue
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch processing queue: {str(e)}")
+
+@router.get("/document-stats", response_model=DocumentStats)
+async def get_document_stats(db: Session = Depends(get_db)):
+    """
+    Alias path to match frontend client usage
+    """
+    try:
+        user_id = "default-user"
+        stats = await analytics_service.get_document_stats(db, user_id)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch document stats: {str(e)}")
 
 @router.get("/reports")
 async def get_reports(

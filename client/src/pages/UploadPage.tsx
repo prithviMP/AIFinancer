@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, FileText, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useDocuments } from '@/hooks/useDocuments';
+import { useDocuments, useUploadDocument, useDeleteDocument, useDownloadDocument } from '@/hooks/useDocuments';
 import { DocumentType } from '@shared/schema';
-import { apiRequest } from '@/lib/queryClient';
 import { Layout } from '@/components/Layout';
 import { LoadingOverlay } from '@/components/business/LoadingOverlay';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -16,63 +14,47 @@ import { FileUpload } from '@/components/business/FileUpload';
 export default function UploadPage() {
   const { data: documents = [], isLoading, error } = useDocuments();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
 
-  const uploadMutation = useMutation({
-    mutationFn: async (files: File[]) => {
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append('documents', file);
-      });
-      
-      return apiRequest('/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
-      toast({
-        title: 'Upload successful',
-        description: 'Documents have been uploaded and are being processed',
-      });
-      setUploadingFiles([]);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Upload failed',
-        description: error.message || 'Failed to upload documents',
-        variant: 'destructive',
-      });
-      setUploadingFiles([]);
-    },
-  });
+  // Normalize to a plain array for rendering and counters
+  const documentItems: DocumentType[] = Array.isArray(documents)
+    ? (documents as DocumentType[])
+    : (documents?.items ?? []);
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/documents/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
-      toast({
-        title: 'Document deleted',
-        description: 'The document has been successfully removed',
-      });
-    },
-  });
+  const uploadMutation = useUploadDocument();
+  const deleteMutation = useDeleteDocument();
+  const downloadMutation = useDownloadDocument();
 
-  const handleUpload = (files: File[]) => {
+  const handleUpload = async (files: File[]) => {
     setUploadingFiles(files);
-    uploadMutation.mutate(files);
+    try {
+      await uploadMutation.mutateAsync(files);
+      toast({ title: 'Upload successful', description: 'Documents have been uploaded and are being processed' });
+    } catch (e: any) {
+      toast({ title: 'Upload failed', description: e?.message || 'Failed to upload documents', variant: 'destructive' });
+      throw e; // allow caller to handle upload flow
+    } finally {
+      setUploadingFiles([]);
+    }
   };
 
-  const handleView = (doc: DocumentType) => {
-    console.log('Viewing document:', doc);
+  const handleView = async (doc: DocumentType) => {
+    // Reuse download flow to open the file in a new tab
+    try {
+      const blob = await downloadMutation.mutateAsync(doc.id);
+      const url = window.URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (win) {
+        win.focus();
+      }
+    } catch (error) {
+      console.error('View error:', error);
+    }
   };
 
   const handleDownload = async (doc: DocumentType) => {
     try {
-      const response = await fetch(`/api/documents/${doc.id}/download`);
-      const blob = await response.blob();
+      const blob = await downloadMutation.mutateAsync(doc.id);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -138,12 +120,12 @@ export default function UploadPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Recent Uploads ({documents.length})
+              Recent Uploads ({documentItems.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <LoadingOverlay isLoading={isLoading} loadingText="Loading documents...">
-              {documents.length === 0 ? (
+            <LoadingOverlay isLoading={isLoading || uploadMutation.isPending} loadingText="Loading documents...">
+              {documentItems.length === 0 ? (
                 <EmptyState
                   icon={FileText}
                   title="No documents uploaded yet"
@@ -155,13 +137,13 @@ export default function UploadPage() {
                 />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {documents.map((document) => (
+                  {documentItems.map((document) => (
                     <DocumentCard
                       key={document.id}
                       document={document}
-                      onView={handleView}
-                      onDownload={handleDownload}
-                      onDelete={handleDelete}
+                      onView={() => handleView(document)}
+                      onDownload={() => handleDownload(document)}
+                      onDelete={() => handleDelete(document.id)}
                     />
                   ))}
                 </div>
@@ -177,7 +159,7 @@ export default function UploadPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Uploaded</p>
-                  <p className="text-2xl font-bold">{documents.length}</p>
+                  <p className="text-2xl font-bold">{documentItems.length}</p>
                 </div>
                 <FileText className="h-8 w-8 text-primary" />
               </div>
@@ -190,7 +172,7 @@ export default function UploadPage() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Processing</p>
                   <p className="text-2xl font-bold">
-                    {documents.filter(d => d.status === 'processing').length}
+                    {documentItems.filter(d => d.status === 'processing').length}
                   </p>
                 </div>
                 <div className="h-8 w-8 text-yellow-600">⚡</div>
@@ -204,7 +186,7 @@ export default function UploadPage() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Completed</p>
                   <p className="text-2xl font-bold">
-                    {documents.filter(d => d.status === 'completed').length}
+                    {documentItems.filter(d => d.status === 'completed').length}
                   </p>
                 </div>
                 <div className="h-8 w-8 text-green-600">✅</div>

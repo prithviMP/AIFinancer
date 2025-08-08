@@ -79,7 +79,8 @@ export const api = {
 
   deleteDocument: (id: string) => apiClient.delete(`/documents/${id}`),
 
-  downloadDocument: (id: string) => apiClient.get(`/documents/${id}/download`),
+  downloadDocument: (id: string) =>
+    apiClient.get(`/documents/${id}/download`, { responseType: 'blob' }),
 
   queryDocuments: (query: string, documentIds?: string[]) =>
     apiClient.post('/documents/query', { query, document_ids: documentIds }),
@@ -88,6 +89,8 @@ export const api = {
   getDashboardStats: () => apiClient.get('/analytics/dashboard'),
 
   getProcessingQueue: () => apiClient.get('/analytics/processing-queue'),
+
+  getDocumentStats: () => apiClient.get('/analytics/document-stats'),
 
   getReports: (params: {
     report_type?: string;

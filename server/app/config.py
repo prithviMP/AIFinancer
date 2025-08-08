@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "AI-Powered Financial Document Automation"
     DEBUG: bool = False
     
-    # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost/financial_docs"
+    # Database (default to local SQLite for easy dev; override via .env in prod)
+    DATABASE_URL: str = "sqlite:///./app.db"
     
     # Security
     SECRET_KEY: str = "your-secret-key-here"
